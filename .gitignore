@@ -1,0 +1,25 @@
+# Dependencies
+/node_modules
+/backend/__pycache__
+/backend/venv
+/backend/env/
+/backend/build/
+/backend/dist/
+*.pyc
+
+# Environment Variables (CRITICAL: Do not commit API Keys)
+.env
+/frontend/.env
+/backend/.env
+
+# MacOS/System
+.DS_Store
+Thumbs.db
+
+# Build outputs
+/frontend/dist
+/frontend/build
+
+# IDE
+.vscode/
+.idea/
