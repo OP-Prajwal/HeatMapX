@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, ArrowRight, Activity, ThermometerSun, ShieldCheck } from 'lucide-react';
+import { Leaf, ArrowRight, Activity, ThermometerSun, ShieldCheck, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 // Svg Tree Component for the left and right sides
 function TreeSVG({ className }) {
@@ -71,6 +72,12 @@ function FallingLeaves() {
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   return (
     <div className="full-screen-container">
@@ -87,10 +94,29 @@ export default function Landing() {
             <Leaf className="logo-icon" size={32} color="var(--accent-green)" />
             <span className="text-gradient">HeatMapX</span>
           </div>
-          <div>
-            <button className="btn btn-glass" onClick={() => navigate('/dashboard')}>
-              Go to Dashboard
-            </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {user ? (
+              <>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Hi, {user.name.split(' ')[0]}
+                </span>
+                <button className="btn btn-glass" onClick={() => navigate('/dashboard')}>
+                  Go to Dashboard
+                </button>
+                <button className="btn btn-glass" onClick={handleLogout}>
+                  <LogOut size={16} /> Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-glass" onClick={() => navigate('/login')}>
+                  Log In
+                </button>
+                <button className="btn btn-primary" onClick={() => navigate('/register')}>
+                  Sign Up
+                </button>
+              </>
+            )}
           </div>
         </nav>
 
@@ -134,7 +160,11 @@ export default function Landing() {
             </p>
             
             <div style={{ display: 'flex', gap: '16px' }}>
-              <button className="btn btn-primary" onClick={() => navigate('/dashboard')} style={{ padding: '16px 32px', fontSize: '1.1rem' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate(user ? '/dashboard' : '/login')}
+                style={{ padding: '16px 32px', fontSize: '1.1rem' }}
+              >
                 Start Analysis <ArrowRight size={20} />
               </button>
             </div>

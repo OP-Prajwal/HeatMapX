@@ -2,17 +2,67 @@ import os
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_login import LoginManager
 from dotenv import load_dotenv
 import cv2
 import numpy as np
 import base64
+from tensorflow.keras.models import load_model
+
+from models import db, User
+from auth import auth_bp
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-# Enable CORS for the React frontend
-CORS(app)
+
+# --- App / session configuration ---------------------------------------
+# SECRET_KEY signs the session cookie used for login state. Set a real,
+# random value via the SECRET_KEY env var in production.
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-me')
+
+# --- Database (SQLite via SQLAlchemy) -----------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'DATABASE_URL', f"sqlite:///{os.path.join(BASE_DIR, 'database.db')}"
+)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
+
+# --- Session cookie settings ---------------------------------------------
+# Lax works for local dev even across ports (5173 <-> 5000) because
+# SameSite is evaluated per registrable domain ("site"), not per port.
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+# Only send the cookie over HTTPS once deployed behind TLS.
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+
+# --- Flask-Login -----------------------------------------------------------
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    return jsonify({"error": "Authentication required."}), 401
+
+# --- CORS ------------------------------------------------------------------
+# supports_credentials + an explicit origin (not '*') are required so the
+# browser will actually send/receive the session cookie cross-origin.
+FRONTEND_ORIGIN = os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173')
+CORS(app, supports_credentials=True, origins=[FRONTEND_ORIGIN])
+
+# --- Register the new authentication API ------------------------------
+app.register_blueprint(auth_bp)
 
 API_KEY = os.getenv('GOOGLE_MAPS_API_KEY', '')
 

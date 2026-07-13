@@ -296,3 +296,59 @@ h1, h2, h3, h4 {
   position: fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:0;
 }
 .tree-left, .tree-right { display: none; } /* Kept code but hide standard 2D trees to replace with clean UI */
+
+/* --- Auth (Login / Register) ------------------------------------------- */
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.auth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.auth-input {
+  font-family: var(--font-main);
+  font-size: 1rem;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: rgba(16, 185, 129, 0.02);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-input:focus {
+  border-color: var(--accent-main);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
+  background: #fff;
+}
+
+.auth-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.15);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+}

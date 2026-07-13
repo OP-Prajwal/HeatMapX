@@ -1,14 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete, DrawingManager } from '@react-google-maps/api';
-import { Leaf, Upload, MapPin, Activity, ThermometerSun, TreePine, AlertCircle, CheckCircle2, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { Leaf, Upload, MapPin, Activity, ThermometerSun, TreePine, AlertCircle, CheckCircle2, ArrowLeft, Loader2, Sparkles, LogOut } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const libraries = ['places', 'drawing'];
 const initialCenter = { lat: 28.6139, lng: 77.2090 };
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('upload'); 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -89,6 +91,11 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   const renderResultBadge = (code, text) => {
     const isHigh = code === 'high';
     const isMod = code === 'moderate';
@@ -128,9 +135,17 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <div style={{ marginTop: 'auto' }}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {user && (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              Signed in as {user.name}
+            </p>
+          )}
           <button className="btn btn-glass" onClick={() => navigate('/')} style={{ width: '100%', justifyContent: 'center' }}>
             <ArrowLeft size={18} /> Exit
+          </button>
+          <button className="btn btn-glass" onClick={handleLogout} style={{ width: '100%', justifyContent: 'center' }}>
+            <LogOut size={18} /> Logout
           </button>
         </div>
       </aside>
