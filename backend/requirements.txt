@@ -1,7 +1,8 @@
 Flask==3.0.0
 flask-cors==4.0.0
-tensorflow
 opencv-python-headless
 numpy
 requests
 python-dotenv
+earthengine-api
+google-auth

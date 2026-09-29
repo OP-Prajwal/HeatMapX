@@ -1,8 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker, Autocomplete, DrawingManager } from '@react-google-maps/api';
-import { Leaf, Upload, MapPin, Activity, ThermometerSun, TreePine, AlertCircle, CheckCircle2, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { GoogleMap, useJsApiLoader, Marker, DrawingManager } from '@react-google-maps/api';
+import { Leaf, Upload, MapPin, Activity, ThermometerSun, TreePine, AlertCircle, CheckCircle2, ArrowLeft, Loader2, Sparkles, Satellite, Droplets } from 'lucide-react';
 import axios from 'axios';
+import TemporalChart from '../components/TemporalChart';
 
 const libraries = ['places', 'drawing'];
 const initialCenter = { lat: 28.6139, lng: 77.2090 };
@@ -16,10 +17,36 @@ export default function Dashboard() {
   const [drawMode, setDrawMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
   const [center, setCenter] = useState(initialCenter);
-  const [autocomplete, setAutocomplete] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [drawBounds, setDrawBounds] = useState(null);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.length >= 3) {
+        setIsSearching(true);
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5`)
+          .then(res => res.json())
+          .then(data => {
+            setSearchResults(data);
+            setIsSearching(false);
+          })
+          .catch(err => {
+            console.error(err);
+            setIsSearching(false);
+          });
+      } else {
+        setSearchResults([]);
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -41,18 +68,27 @@ export default function Dashboard() {
   const simulateProcessing = async (hasFile) => {
     setLoading(true);
     setResult(null);
+    setError('');
     
     try {
       const formData = new FormData();
       if (hasFile && file) {
         formData.append('image', file);
+        formData.append('generate_heatmap', 'true');
       } else if (position) {
         formData.append('lat', position.lat);
         formData.append('lng', position.lng);
+        if (drawBounds) {
+          formData.append('minLat', drawBounds.minLat);
+          formData.append('maxLat', drawBounds.maxLat);
+          formData.append('minLng', drawBounds.minLng);
+          formData.append('maxLng', drawBounds.maxLng);
+        }
         // If it's a drawing, backend will also process heat overlay
         formData.append('generate_heatmap', 'true');
       } else {
         setLoading(false);
+        setError('Select an image or map target before running analysis.');
         return;
       }
       
@@ -64,27 +100,12 @@ export default function Dashboard() {
           setLoading(false);
       } catch(err) {
           console.error("API Error", err);
-          
-          if(err.response?.status === 500 && err.response?.data?.error?.includes('API Key')) {
-            alert(err.response.data.error);
-            setLoading(false);
-            return;
-          }
-          
-          // Fallback simulation
-          setTimeout(() => {
-              setResult({
-                heatRisk: hasFile ? 78.5 : Math.floor(Math.random() * 80) + 10,
-                greenCover: hasFile ? 12.3 : Math.floor(Math.random() * 40) + 10,
-                classification: hasFile ? "High Urban Heat Island Risk" : "Moderate Heat Risk",
-                classification_code: hasFile ? "high" : "moderate",
-                suggestions: hasFile ? ["Neem", "Rain Tree", "Banyan"] : ["Gulmohar", "Ashoka"],
-                tempReductionText: hasFile ? "Estimated 2–4°C reduction" : "Estimated 1–2°C reduction"
-              });
-              setLoading(false);
-          }, 1500);
+          setError(err.response?.data?.error || 'Analysis failed. Check that the Flask backend is running on port 5000.');
+          setLoading(false);
+          return;
       }
     } catch(err) {
+      setError('Analysis failed before the request could be sent.');
       setLoading(false);
     }
   };
@@ -140,7 +161,7 @@ export default function Dashboard() {
         
         <header style={{ marginBottom: '1rem' }}>
           <h2 style={{ fontSize: '2.5rem', marginBottom: '8px' }}>Analysis Dashboard</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Deploy structural CNN models on urban coordinates.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Analyze urban heat risk with satellite thermal data, spectral indices, and image-based fallback detection.</p>
         </header>
 
         {/* Input Bento Box */}
@@ -175,23 +196,15 @@ export default function Dashboard() {
                  {isLoaded ? (
                   <>
                     <div style={{ position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, width: '80%', maxWidth: '400px' }}>
-                      <Autocomplete
-                        onLoad={(ac) => setAutocomplete(ac)}
-                        onPlaceChanged={() => {
-                          if (autocomplete !== null) {
-                            const place = autocomplete.getPlace();
-                            if (place.geometry && place.geometry.location) {
-                              const lat = place.geometry.location.lat();
-                              const lng = place.geometry.location.lng();
-                              setCenter({ lat, lng });
-                              setPosition({ lat, lng });
-                            }
-                          }
-                        }}
-                      >
+                      <div style={{ position: 'relative', width: '100%' }}>
                         <input
                           type="text"
-                          placeholder="Search for any location..."
+                          value={searchQuery}
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setShowDropdown(true);
+                          }}
+                          placeholder="Search for any free location..."
                           style={{
                             boxSizing: 'border-box',
                             border: '1px solid var(--glass-border)',
@@ -203,11 +216,38 @@ export default function Dashboard() {
                             fontSize: '1rem',
                             outline: 'none',
                             fontFamily: 'var(--font-main)',
+                            background: 'white'
                           }}
                         />
-                      </Autocomplete>
+                        {isSearching && <Loader2 className="spin" size={16} color="gray" style={{ position: 'absolute', right: '16px', top: '16px' }} />}
+                      </div>
+
+                      {showDropdown && searchResults.length > 0 && (
+                        <div style={{
+                          position: 'absolute', top: '56px', width: '100%', background: 'white', borderRadius: '12px', boxShadow: 'var(--shadow-lg)', overflow: 'hidden', border: '1px solid var(--glass-border)'
+                        }}>
+                          {searchResults.map((place, idx) => (
+                            <div 
+                              key={idx}
+                              onClick={() => {
+                                const lat = parseFloat(place.lat);
+                                const lng = parseFloat(place.lon);
+                                setCenter({ lat, lng });
+                                setPosition({ lat, lng });
+                                setSearchQuery(place.display_name.split(',')[0]);
+                                setShowDropdown(false);
+                              }}
+                              style={{ padding: '12px 20px', cursor: 'pointer', borderBottom: idx !== searchResults.length - 1 ? '1px solid #f1f5f9' : 'none', fontSize: '0.95rem', color: '#334155' }}
+                              onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
+                              onMouseLeave={(e) => e.target.style.background = 'white'}
+                            >
+                              {place.display_name.split(',').slice(0, 3).join(', ')}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={11} mapTypeId="satellite" options={{ disableDefaultUI: true, zoomControl: true }} onClick={(e) => { if(!drawMode) setPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() }) }}>
+                    <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={11} mapTypeId="satellite" options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' }} onClick={(e) => { if(!drawMode) { setPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() }); setDrawBounds(null); } }}>
                       {position && !drawMode && <Marker position={position} />}
                       {drawMode && (
                         <DrawingManager
@@ -218,10 +258,21 @@ export default function Dashboard() {
                                 const bounds = e.overlay.getBounds();
                                 centerLat = bounds.getCenter().lat();
                                 centerLng = bounds.getCenter().lng();
+                                const ne = bounds.getNorthEast();
+                                const sw = bounds.getSouthWest();
+                                setDrawBounds({ minLat: sw.lat(), maxLat: ne.lat(), minLng: sw.lng(), maxLng: ne.lng() });
                               } else {
                                 const path = e.overlay.getPath().getArray();
                                 centerLat = path[0].lat();
                                 centerLng = path[0].lng(); // Appx center for polygon
+                                let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+                                path.forEach(p => {
+                                  if (p.lat() < minLat) minLat = p.lat();
+                                  if (p.lat() > maxLat) maxLat = p.lat();
+                                  if (p.lng() < minLng) minLng = p.lng();
+                                  if (p.lng() > maxLng) maxLng = p.lng();
+                                });
+                                setDrawBounds({ minLat, maxLat, minLng, maxLng });
                               }
                               setPosition({ lat: centerLat, lng: centerLng });
                             }
@@ -266,6 +317,12 @@ export default function Dashboard() {
           )}
         </div>
 
+        {error && (
+          <div className="bento-card" style={{ marginTop: '1rem', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca' }}>
+            {error}
+          </div>
+        )}
+
         {/* Results Bento Grid */}
         {result && (
           <div className="stats-grid animate-fade-in" style={{ animationDelay: '0.1s' }}>
@@ -273,12 +330,17 @@ export default function Dashboard() {
             {/* Primary Result Card */}
             <div className="bento-card" style={{ gridColumn: 'span 3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <h3 style={{ fontSize: '1.8rem' }}>AI Diagnosis</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <h3 style={{ fontSize: '1.8rem' }}>UHI Analysis</h3>
                   {renderResultBadge(result.classification_code, result.classification)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.03em', background: result.dataSource === 'satellite' ? 'linear-gradient(135deg, #dbeafe, #ede9fe)' : '#f1f5f9', color: result.dataSource === 'satellite' ? '#4338ca' : '#64748b', border: result.dataSource === 'satellite' ? '1px solid #c7d2fe' : '1px solid #e2e8f0' }}>
+                    {result.dataSource === 'satellite' ? <><Satellite size={14} /> Landsat + Sentinel-2</> : <><Upload size={14} /> Image Analysis</>}
+                  </div>
                 </div>
                 <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', maxWidth: '600px' }}>
-                  The deep learning model has finished structural map layer deduction. Below are the precise microclimate indicators and cooling suggestions.
+                  {result.dataSource === 'satellite'
+                    ? 'Analysis powered by real Landsat 8 thermal bands and Sentinel-2 spectral indices via Google Earth Engine.'
+                    : 'Analyzed using OpenCV multi-gate vegetation, water body, and surface detection on the uploaded image.'}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -289,16 +351,90 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Sub Metric Cards */}
+            {/* ---- Temperature Card ---- */}
+            {result.realTemperature != null && (
+              <div className="bento-card" style={{ background: 'linear-gradient(135deg, #fff7ed, #fff)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#ea580c' }}>
+                  <div style={{ padding: '10px', background: '#ffedd5', borderRadius: '12px' }}><ThermometerSun size={24} /></div>
+                  <span className="stat-label" style={{ color: 'var(--text-main)' }}>Surface Temperature</span>
+                </div>
+                <div className="stat-value" style={{ fontSize: '3.5rem', color: result.realTemperature > 35 ? '#dc2626' : result.realTemperature > 25 ? '#ea580c' : '#059669' }}>{result.realTemperature}°C</div>
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Real LST from Landsat 8 thermal band (ST_B10).</p>
+              </div>
+            )}
+            {result.estimatedTemperature != null && (
+              <div className="bento-card" style={{ background: 'linear-gradient(135deg, #fff7ed, #fff)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#ea580c' }}>
+                  <div style={{ padding: '10px', background: '#ffedd5', borderRadius: '12px' }}><ThermometerSun size={24} /></div>
+                  <span className="stat-label" style={{ color: 'var(--text-main)' }}>Est. Surface Temperature</span>
+                </div>
+                <div className="stat-value" style={{ fontSize: '3.5rem', color: result.estimatedTemperature > 35 ? '#dc2626' : result.estimatedTemperature > 25 ? '#ea580c' : '#059669' }}>{result.estimatedTemperature}°C</div>
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Estimated from built-up surface ratio (OpenCV analysis).</p>
+              </div>
+            )}
+
+            {/* ---- Vegetation Card ---- */}
             <div className="bento-card" style={{ background: 'var(--bg-surface-solid)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: 'var(--accent-main)' }}>
                 <div style={{ padding: '10px', background: 'var(--accent-light)', borderRadius: '12px' }}><Leaf size={24} /></div>
-                <span className="stat-label" style={{ color: 'var(--text-main)' }}>Green Cover Detection</span>
+                <span className="stat-label" style={{ color: 'var(--text-main)' }}>{result.ndvi != null ? 'NDVI Vegetation Index' : 'Green Cover Detection'}</span>
               </div>
-              <div className="stat-value text-gradient" style={{ fontSize: '3.5rem' }}>{result.greenCover}%</div>
-              <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Analyzed via pixel density thresholding.</p>
+              {result.ndvi != null ? (
+                <>
+                  <div className="stat-value text-gradient" style={{ fontSize: '3.5rem' }}>{result.ndvi}</div>
+                  <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Sentinel-2 NDVI: (NIR−Red)/(NIR+Red). &gt;0.4 = dense vegetation.</p>
+                </>
+              ) : (
+                <>
+                  <div className="stat-value text-gradient" style={{ fontSize: '3.5rem' }}>{result.greenCover}%</div>
+                  <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>4-gate filter: ExG + GCC + green dominance + HSV hue.</p>
+                </>
+              )}
             </div>
 
+            {/* ---- Built-up / NDBI Card ---- */}
+            {result.ndbi != null ? (
+              <div className="bento-card" style={{ background: 'linear-gradient(135deg, #fef2f2, #fff)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#dc2626' }}>
+                  <div style={{ padding: '10px', background: '#fee2e2', borderRadius: '12px' }}><Activity size={24} /></div>
+                  <span className="stat-label" style={{ color: 'var(--text-main)' }}>NDBI Built-up Index</span>
+                </div>
+                <div className="stat-value" style={{ fontSize: '3.5rem', color: result.ndbi > 0.1 ? '#dc2626' : '#059669' }}>{result.ndbi}</div>
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Sentinel-2 NDBI: (SWIR−NIR)/(SWIR+NIR). &gt;0 = built-up area.</p>
+              </div>
+            ) : result.builtUp != null ? (
+              <div className="bento-card" style={{ background: 'linear-gradient(135deg, #fef2f2, #fff)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#dc2626' }}>
+                  <div style={{ padding: '10px', background: '#fee2e2', borderRadius: '12px' }}><Activity size={24} /></div>
+                  <span className="stat-label" style={{ color: 'var(--text-main)' }}>Built-up Surface</span>
+                </div>
+                <div className="stat-value" style={{ fontSize: '3.5rem', color: result.builtUp > 70 ? '#dc2626' : result.builtUp > 40 ? '#d97706' : '#059669' }}>{result.builtUp}%</div>
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Concrete, asphalt & impervious surfaces (100% − green − water).</p>
+              </div>
+            ) : null}
+
+            {/* ---- Water Card ---- */}
+            {result.ndwi != null ? (
+              <div className="bento-card" style={{ background: 'linear-gradient(135deg, #eff6ff, #fff)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#2563eb' }}>
+                  <div style={{ padding: '10px', background: '#dbeafe', borderRadius: '12px' }}><Droplets size={24} /></div>
+                  <span className="stat-label" style={{ color: 'var(--text-main)' }}>NDWI Water Index</span>
+                </div>
+                <div className="stat-value" style={{ fontSize: '3.5rem', color: '#2563eb' }}>{result.ndwi}</div>
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Sentinel-2 NDWI: (Green−NIR)/(Green+NIR). &gt;0 = water present.</p>
+              </div>
+            ) : result.waterCover != null ? (
+              <div className="bento-card" style={{ background: 'linear-gradient(135deg, #eff6ff, #fff)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#2563eb' }}>
+                  <div style={{ padding: '10px', background: '#dbeafe', borderRadius: '12px' }}><Droplets size={24} /></div>
+                  <span className="stat-label" style={{ color: 'var(--text-main)' }}>Water Body Coverage</span>
+                </div>
+                <div className="stat-value" style={{ fontSize: '3.5rem', color: '#2563eb' }}>{result.waterCover}%</div>
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '0.9rem' }}>Detected via HSV blue/cyan range water body masking.</p>
+              </div>
+            ) : null}
+
+            {/* ---- Thermal Reduction Card ---- */}
             <div className="bento-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', color: '#0ea5e9' }}>
                 <div style={{ padding: '10px', background: '#e0f2fe', borderRadius: '12px' }}><ThermometerSun size={24} /></div>
@@ -310,6 +446,7 @@ export default function Dashboard() {
               <p style={{ color: 'var(--text-muted)', marginTop: '12px', fontSize: '0.9rem' }}>Calculated projection based on 5-year maturation.</p>
             </div>
 
+            {/* ---- Tree Recommendations Card ---- */}
             <div className="bento-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', color: 'var(--accent-main)' }}>
                 <div style={{ padding: '10px', background: 'var(--accent-light)', borderRadius: '12px' }}><TreePine size={24} /></div>
@@ -324,7 +461,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Generated Visual Heatmap (If Zone Selected) */}
+            {/* ---- Thermal Heatmap Overlay ---- */}
             {result.heatmap_image && (
               <div className="bento-card" style={{ gridColumn: 'span 3' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', color: '#dc2626' }}>
@@ -337,6 +474,12 @@ export default function Dashboard() {
 
           </div>
         )}
+
+        {/* Temporal Trend Analysis — shown whenever a map pin is set */}
+        {activeTab === 'map' && position && (
+          <TemporalChart position={position} drawBounds={drawBounds} />
+        )}
+
       </main>
     </div>
   );

@@ -295,4 +295,63 @@ h1, h2, h3, h4 {
 .falling-leaves {
   position: fixed; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:0;
 }
-.tree-left, .tree-right { display: none; } /* Kept code but hide standard 2D trees to replace with clean UI */
+.tree-left, .tree-right {
+  position: absolute;
+  bottom: -20px;
+  width: 450px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.tree-left {
+  left: -50px;
+  transform-origin: bottom center;
+  animation: sway 7s ease-in-out infinite;
+}
+
+.tree-right {
+  right: -50px;
+  transform-origin: bottom center;
+  animation: sway-right 6.5s ease-in-out infinite;
+}
+
+@keyframes sway {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+@keyframes sway-right {
+  0%, 100% { transform: scaleX(-1) rotate(-1.5deg); }
+  50% { transform: scaleX(-1) rotate(1.5deg); }
+}
+
+.leaf {
+  position: absolute;
+  top: -10vh;
+  animation-name: fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.leaf-inner {
+  width: 15px;
+  height: 15px;
+  background: var(--accent-main);
+  border-radius: 0 15px 0 15px;
+  opacity: 0.6;
+  animation: spin-leaf 4s linear infinite;
+}
+
+@keyframes fall {
+  0% { top: -10%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 110%; opacity: 0; }
+}
+
+@keyframes spin-leaf {
+  0% { transform: rotate(0deg) translateX(0); }
+  50% { transform: rotate(180deg) translateX(25px); }
+  100% { transform: rotate(360deg) translateX(0); }
+}

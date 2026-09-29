@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, ArrowRight, Activity, ThermometerSun, ShieldCheck } from 'lucide-react';
+import { Leaf, ArrowRight, Activity, ThermometerSun } from 'lucide-react';
 
 // Svg Tree Component for the left and right sides
 function TreeSVG({ className }) {
@@ -63,7 +63,9 @@ function FallingLeaves() {
             animationDelay: `${leaf.animationDelay}s`,
             transform: `scale(${leaf.scale})`
           }}
-        />
+        >
+          <div className="leaf-inner" />
+        </div>
       ))}
     </div>
   );
@@ -130,7 +132,7 @@ export default function Landing() {
             
             <p style={{ color: 'var(--text-muted)', fontSize: '1.25rem', marginBottom: '3rem', lineHeight: 1.6, maxWidth: '600px' }}>
               Upload imagery or select a location to identify high-risk heat zones. 
-              Our advanced deep learning model recommends specific vegetation and estimates temperature reductions to help restore our urban ecosystems.
+              Our satellite-driven analysis recommends specific vegetation and estimates temperature reductions to help restore our urban ecosystems.
             </p>
             
             <div style={{ display: 'flex', gap: '16px' }}>
@@ -142,11 +144,7 @@ export default function Landing() {
             <div style={{ display: 'flex', gap: '32px', marginTop: '4rem', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '2rem', width: '100%', justifyContent: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
                 <ThermometerSun size={20} color="var(--accent-main)" />
-                <span style={{ fontSize: '1rem', fontWeight: 600 }}>Microclimate CNN</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                <ShieldCheck size={20} color="var(--accent-main)" />
-                <span style={{ fontSize: '1rem', fontWeight: 600 }}>94% Accuracy</span>
+                <span style={{ fontSize: '1rem', fontWeight: 600 }}>Deterministic Heat Mapping</span>
               </div>
             </div>
           </div>

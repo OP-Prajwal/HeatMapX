@@ -20,6 +20,19 @@ Thumbs.db
 /frontend/dist
 /frontend/build
 
+# Downloaded model artifacts
+*.h5
+*.keras
+*.pth
+*.pt
+!/backend/models/README.md
+
+# Logs & Generated test images
+*.log
+*.jpg
+*.png
+
 # IDE
 .vscode/
 .idea/
+
